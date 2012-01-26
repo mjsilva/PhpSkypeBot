@@ -1,0 +1,28 @@
+/**
+ *
+ * PhpSkypeBot
+ * 
+ * 
+ * This script requires Skype4Com.dll and Sapi.SpVoice for text-to-speech.
+ * Sapi.SpVoice comes pre-installed with Windows.
+ *
+ * download Skype4Com here:
+ * http://developer.skype.com/accessories/skype4com
+ *
+ * and copy to C:\Program Files\Common Files\Skype\
+ * then  run this command:
+ *
+ * regsvr32 "C:\Program Files\Common Files\Skype\Skype4COM.dll"
+ *
+ * Be sure to change the $chat_name to your chat name. List
+ * chats like this:
+ * $skype = new com("Skype4COM.Skype.1");
+ *
+ * foreach ($skype->chats as $chat) {
+ *   echo $chat->timestamp." ".$chat->name.' '.$chat->friendlyName."\n";
+ * }
+ *
+ * Open Skype then run this file from the command line
+ *
+ *
+ */
