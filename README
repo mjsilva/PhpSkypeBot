@@ -14,13 +14,7 @@
  *
  * regsvr32 "C:\Program Files\Common Files\Skype\Skype4COM.dll"
  *
- * Be sure to change the $chat_name to your chat name. List
- * chats like this:
- * $skype = new com("Skype4COM.Skype.1");
- *
- * foreach ($skype->chats as $chat) {
- *   echo $chat->timestamp." ".$chat->name.' '.$chat->friendlyName."\n";
- * }
+ * Be sure to set the configuration settings in skypebot.php
  *
  * Open Skype then run this file from the command line
  *

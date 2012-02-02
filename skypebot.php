@@ -3,7 +3,7 @@
 /**
  *
  * PhpSkypeBot
- * 
+ * https://github.com/flashmob/PhpSkypeBot
  * 
  * This script requires Skype4Com.dll and Sapi.SpVoice for text-to-speech.
  * Sapi.SpVoice comes pre-installed with Windows.
@@ -16,29 +16,49 @@
  *
  * regsvr32 "C:\Program Files\Common Files\Skype\Skype4COM.dll"
  *
- * Open Skype then run this file from the command line
+ * Open Skype then run from the command line
  *
  */
 
+###############################################################################
+# Configuration
 
+# Show debug messages?
 define ('SHOW_MESSAGES', true);
 
-$tts = new com("Sapi.SpVoice"); // text to speech
-$tts->speak('Php-skype-bot, version 1.0.');
+# Bot's Skype nickname
+define ('SKYPEBOT_USR', 'phpskypebot');
 
+# Friendly name of the chat to join. Eg, set to TEST.
+define ('CHAT_NAME', 'TEST');
+
+# Atom Feed (comment out to disable this feature) 
+#define ('ATOM_FEED_URI', "");
+
+# login to atom feed (optional), format: username:password
+#define ('ATOM_FEED_LOGIN', ''); 
+
+
+# End of configuration
+###############################################################################
+
+$tts = new com("Sapi.SpVoice"); // text to speech
+$tts->speak('Php-skype-bot, version 1.1');
 
 $skype = new com("Skype4COM.Skype.1");
 
-/* listing channels
-foreach ($skype->chats as $chat) {
-  echo $chat->timestamp." ".$chat->name.' '.$chat->friendlyName."\n";
-}
-*/
 
 /**
- * Set the channel here channel. Use list.php to list the channels
+ * Search for the channel using the friendly name
  */
-$chat_name = '#adamrocketnet/$echo123;eacfe24f3f53f156';
+
+foreach ($skype->chats as $chat) {
+  echo $chat->timestamp." ".$chat->name.' '.$chat->friendlyName."\n";
+  if (stripos($chat->friendlyName, CHAT_NAME)!==false) {
+      $chat_name = $chat->name;
+      break;
+  }
+}
 
 $chat = $skype->chat($chat_name);
 
@@ -163,6 +183,9 @@ Chuck Norris." .
 $i = 0;
 $last_count = $chat->messages->count;
 
+$feed_time = time();
+
+$latest_item_time = time();
 
 while (true) {
 
@@ -201,31 +224,95 @@ while (true) {
 
     $last_count = $count;
     
-    if (!empty($messages)) {
-        if (SHOW_MESSAGES) {
+    
+   if (SHOW_MESSAGES) {
+       if (!empty($messages)) {
             print_r($messages);
         }
     }
 
     foreach ($messages as $msg) {
 
-        if ((strpos($msg['body'], '!mamma') !== false)) {
-            "PhpSkypeBot Says -> Yo mamma so fat... ".$chat->SendMessage($mamma_jokes[rand(0, sizeof($mamma_jokes))]);
+        if ($msg['usr']==SKYPEBOT_USR) {
+            // dont do anything
+        }elseif ((strpos($msg['body'], '!help') !== false)) { 
+           $chat->SendMessage('Supported commands: !beer, !norris, !mamma, !coffee, !slap <name>');
+        } elseif ((strpos($msg['body'], '!mamma') !== false)) {
+            $chat->SendMessage($mamma_jokes[rand(0, (sizeof($mamma_jokes)-1))]);
+        } elseif ((strpos($msg['body'], '!slap') !== false)) {
+            $words = preg_split('/[\s,]+/', $msg['body']);
+            if (!empty($words[1])) {
+                $chat->SendMessage('/me slaps '.$words[1].' with a large trout!');
+            }
         } elseif ((strpos($msg['body'], '!norris') !== false)) {
-
-            'PhpSkypeBot Says -> '.$chat->SendMessage($chuck_norris[rand(0, sizeof($chuck_norris))]);
+            $chat->SendMessage($chuck_norris[rand(0, (sizeof($chuck_norris)-1))]);
+        } elseif ((strpos($msg['body'], '!beer') === 0)) {
+            $chat->SendMessage('Here\'s a (beer) for '.$msg['usr'].', cheers!');
+        } elseif ((strpos($msg['body'], '!coffee') === 0)) {
+            $chat->SendMessage('Here\'s a (coffee) for '.$msg['usr'].', enjoy!');
+        } elseif ((strpos($msg['body'], '!') === 0)) {
+            $chat->SendMessage('I\'m afraid I can\'t do that yet, '.$msg['usr']);
         } else {
 
             $txt = trim($msg['body']);
             if (!empty($txt)) {
-                $tts->speak($msg['usr'] . ' says,');
-                $tts->speak($msg['body']);
-                sleep(1);
-                $tts->speak(' Oh ver!');
-                sleep(1);
+                try {
+                    $tts->speak($msg['usr'] . ' says,');
+                    $tts->speak($msg['body']);
+                    sleep(1);
+                    $tts->speak(' Oh ver!');
+                    sleep(1);
+                } catch (Exception $e) {
+
+                }
             }
         }
 
+    }
+
+    if (defined('ATOM_FEED_URI')) {
+        if ((time() - $feed_time) > (60*5)) {
+      
+            // create a new cURL resource
+            $ch = curl_init();
+
+            // set URL and other appropriate options
+            curl_setopt($ch, CURLOPT_URL, ATOM_FEED_URI);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            
+            if (defined('ATOM_FEED_LOGIN')) {
+                curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC ) ;
+                curl_setopt($ch, CURLOPT_USERPWD, ATOM_FEED_LOGIN);
+            }
+            curl_setopt($ch, CURLOPT_SSLVERSION,3); 
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE); 
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2); 
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); 
+            curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0)"); 
+
+            // grab URL and pass it to the browser
+            $xml_string = curl_exec($ch);
+
+            // close cURL resource, and free up system resources
+            curl_close($ch);
+
+            $news = new SimpleXMLElement($xml_string);
+            foreach ($news->entry as $item) {
+                $item_time = strtotime($item->published);
+                if ($item_time > $latest_item_time) {
+                    $send = '';
+                    $send = strip_tags((string)$item->title);
+                    $send .= (string) $item->link['href']."\n";
+                    $chat->SendMessage($send);                    
+                }
+
+            }
+            if (!empty($news->entry)) {
+                $latest_item_time = strtotime($news->entry[0]->published);
+            }
+            $feed_time = time();
+
+        }
     }
 
     sleep(1);
